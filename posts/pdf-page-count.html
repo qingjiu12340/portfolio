@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>简历 3 页压到 1 页：根因是缺 @page，不是内容太多 — 技术笔记 · 李旭</title>
+<meta name="description" content="Markdown 转 PDF 页数超标，第一反应是删内容；实际根因是打印样式里没有 @page 规则。附可复用的打印排版检查清单。">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<div class="wrap">
+
+<nav class="top">
+  <a href="../index.html">← 作品集首页</a>
+  <a href="../blog.html">全部技术笔记</a>
+</nav>
+
+<article class="post">
+
+<h1>简历 3 页压到 1 页：根因是缺 <code>@page</code>，不是内容太多</h1>
+<p class="tagline">2026-09 ｜ 打印排版 / CSS ｜ 阅读约 6 分钟</p>
+
+<div class="lead">
+一句话结论：<b>页数超标时，先怀疑样式，别先删内容。</b>
+没有 <code>@page</code> 规则时，浏览器按默认边距排版，屏幕样式里那些
+<code>max-width</code> 和大 <code>padding</code> 在打印场景下是纯粹的浪费——
+把版面还回来，正文反而能写得更长。
+</div>
+
+<h2>问题</h2>
+<p>简历用 Markdown 写、转成 PDF 投递，要求一页 A4。转出来是 <b>3 页</b>。</p>
+<p>第一反应是「内容太多了，删吧」。但删之前先问了一句：<b>到底是内容装不下，还是版面被浪费了？</b>
+这两个原因看起来症状一样，处理方式完全相反——如果是版面问题，删内容等于白删，删完还难看。</p>
+
+<h2>先量，再改</h2>
+<p>打开生成的 HTML 看样式，两个数字很扎眼：</p>
+<ul>
+  <li>整份样式表里 <b><code>@page</code> 出现 0 次</b>。</li>
+  <li>带着 pandoc 默认样式：<code>max-width: 36em</code>、<code>padding: 50px</code>。</li>
+</ul>
+<p>这两个数字就把结论定死了。分两次说清楚：</p>
+
+<p><b>① <code>max-width: 36em</code> 是屏幕样式的遗留物。</b>
+它把正文限制在约 36 个字符宽（中文更少），在屏幕上是为了防止一行太长不好读。
+但打印时纸张宽度是固定的 A4，这个限制不会让纸变窄——它只会让<b>文字挤在纸中间一窄条</b>，
+两侧留下大片空白。同样的内容，占用更多纵向空间。</p>
+
+<p><b>② 没有 <code>@page</code>，就没有页面的规格和边距控制。</b>
+浏览器会退回默认边距（通常在 10–13mm 上下），而你对此毫无控制权。
+换句话说：这一版的页边距、纸张尺寸、缩放，全都不是你决定的。</p>
+
+<p>结论：<b>不是内容多，是版面没被管过。</b></p>
+
+<h2>改法</h2>
+<p>在样式表末尾加一段打印专用规则（顺序很重要，放在最后覆盖前面的）：</p>
+
+<pre><code>/* 1. 页面规格：由你决定纸张与页边距，而不是浏览器默认 */
+@page {
+  size: A4;
+  margin: 9mm 11mm;
+}
+
+/* 2. 清掉屏幕样式对打印的干扰 */
+html, body {
+  max-width: none;   /* 别把正文挤成窄条 */
+  padding: 0;
+  margin: 0;
+}
+
+/* 3. 打印专用字号与行距：一页塞得下、又不至于难读 */
+body  { font-size: 10pt; line-height: 1.30; }
+h1    { font-size: 15pt; margin: 0 0 4pt; }
+h2    { font-size: 11.5pt; margin: 10pt 0 3pt; }
+p, li { margin: 2pt 0; }</code></pre>
+
+<p>三段的职责分别是：<b>定纸张</b>、<b>清干扰</b>、<b>调密度</b>。缺任何一段都压不下来。</p>
+
+<h2>结果</h2>
+<div class="kpis">
+  <span class="kpi">3 页 → 1 页</span>
+  <span class="kpi">正文字数反而增加</span>
+  <span class="kpi">字号 10pt（可读下限）</span>
+</div>
+<p>压完之后正文<b>比改之前更长</b>——因为省下来的是版面，不是内容。
+这次改动一个字的经历都没删，反而补进了更多细节。这正好反证了最初那个判断是错的。</p>
+
+<h2>可复用的检查清单</h2>
+<p>遇到「HTML/Markdown → PDF 页数超标」，按这个顺序查，比删内容快得多：</p>
+<ol>
+  <li><b>先看 <code>@page</code> 在不在。</b>不在就先加上——这一步经常直接解决问题。</li>
+  <li><b>看有没有 <code>max-width</code> 和容器 <code>padding</code>。</b>打印时把它们归零。</li>
+  <li><b>看有没有 <code>margin</code> 双重叠加。</b>容器的 margin 和 <code>@page</code> 的 margin 会相加。</li>
+  <li><b>再看字号和行距。</b>正文下限约 10pt，行距 1.25–1.35；再小就影响阅读了。</li>
+  <li><b>最后才考虑删内容。</b>而且删之前先确认：删掉的确实是冗余，不是可用信息。</li>
+</ol>
+
+<h2>什么时候不适用</h2>
+<ul>
+  <li><b>分页由内容语义决定时不要硬压。</b>书籍、报告、论文的页数本就该由内容决定，强行压成一页是把信息挤没了。</li>
+  <li><b>已经明确需要多页时</b>，这段规则只该用来控制边距，不要用来缩字号。</li>
+  <li><b>纯屏幕用途不需要这套规则</b>——它是打印专用层，加在样式表末尾即可，不影响屏幕显示。</li>
+</ul>
+
+<div class="block">
+<p><b>一句话记住：</b>屏幕样式管的是「读起来舒服」，打印样式管的是「纸上的物理占用」。
+把两者混在一起用，就会出现「内容不多但页数很多」这种看着像玄学的问题。
+一旦分开，它就只是几个数字。</p>
+</div>
+
+</article>
+
+<footer>
+  <p><a href="../blog.html">← 全部技术笔记</a>　｜　<a href="../index.html">作品集首页</a></p>
+</footer>
+
+</div>
+</body>
+</html>

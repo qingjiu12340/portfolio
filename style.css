@@ -34,4 +34,19 @@ ol{margin:8px 0 0;padding-left:22px}
 .qa{margin:12px 0;padding:12px 16px;border-left:3px solid var(--brand);background:var(--soft);border-radius:0 6px 6px 0}
 .qa .q{font-weight:600;color:var(--brand-d)}
 footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--line);font-size:.85em;color:var(--sub)}
+
+/* ── 技术笔记（博客）────────────────────────── */
+.post h1{font-size:1.72em;line-height:1.35;margin:0 0 6px;letter-spacing:.2px}
+.post .tagline{margin-bottom:22px}
+.post h2{margin-top:38px}
+.post h3{color:var(--brand-d);margin:26px 0 6px;font-size:1.02em}
+.post p{margin:10px 0}
+.post code{font-family:Consolas,'Courier New',monospace;background:var(--soft);border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:.88em;color:var(--brand-d)}
+.post pre{background:#faf9fe;border:1px solid var(--line);border-left:3px solid var(--brand);border-radius:0 6px 6px 0;padding:14px 16px;overflow-x:auto;margin:15px 0;line-height:1.62}
+.post pre code{background:none;border:none;padding:0;font-size:.86em;color:#2c2c40;white-space:pre}
+.post ul,.post ol{margin:10px 0 0;padding-left:22px}
+.post li{margin:6px 0}
+.post .kpis{margin:14px 0}
+.post .block{margin:18px 0}
+.post .block p{margin:10px 0}
 @media(max-width:520px){.wrap{padding:28px 16px 60px}h1{font-size:1.65em}th{width:auto}}

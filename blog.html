@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>技术笔记 — 李旭作品集</title>
+<meta name="description" content="把踩过的坑写成可复用的方法：打印排版、工程可靠性、验证方法。每篇都是具体问题的完整排查过程。">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<nav class="top">
+  <a href="index.html">← 作品集首页</a>
+  <a href="xuanzhi.html">玄知</a>
+  <a href="chumang.html">初芒</a>
+  <a href="pkb.html">知识库巡检</a>
+  <a href="brain.html">第二大脑</a>
+</nav>
+
+<h1>技术笔记</h1>
+<p class="tagline">每篇都是「我在做 X 时遇到 Y，这是我的排查过程和解法」——不是教程，是过程记录</p>
+
+<div class="lead">
+写这些的起因：<b>踩过的坑如果不写成可复用的判据，下次还会踩一遍。</b>
+三篇各自对应一类问题——<b>样式层</b>、<b>外部数据契约</b>、<b>验证方法</b>。
+都能独立读完，也都给了可复用的检查清单。
+</div>
+
+<h2>全部笔记</h2>
+
+<div class="card">
+  <h3><a href="posts/pdf-page-count.html">简历 3 页压到 1 页：根因是缺 <code>@page</code>，不是内容太多</a></h3>
+  <div class="meta">打印排版 / CSS ｜ 2026-09 ｜ 约 6 分钟</div>
+  <p>Markdown 转 PDF 页数超标，第一反应是删内容。查下来发现整份样式表里
+  <code>@page</code> 出现 <b>0 次</b>，还带着屏幕专用的 <code>max-width</code> 和 <code>padding</code>——
+  版面一直在被浪费。改完 <b>3 页 → 1 页，正文字数反而变多</b>。</p>
+  <div class="kpis">
+    <span class="kpi">3 页 → 1 页</span>
+    <span class="kpi">含 5 条检查清单</span>
+    <span class="kpi">含不适用边界</span>
+  </div>
+  <p class="more"><a href="posts/pdf-page-count.html">读这篇 →</a></p>
+</div>
+
+<div class="card">
+  <h3><a href="posts/hook-silent-failure.html">离线自测 15 个场景全对，线上零防护：一次读错字段名的排查</a></h3>
+  <div class="meta">工程可靠性 / 安全边界 ｜ 2026-09 ｜ 约 7 分钟</div>
+  <p>给 CLI agent 写的删除拦截钩子，离线用例全绿、官方自检工具也全绿，
+  真实会话里却<b>一次都没拦下来</b>，日志里 6 次全是「放行」。
+  根因是 payload 字段名猜错——<b>而这类错误的方向是「更宽松」</b>，
+  读不到数据就默认放行，表面全绿、实际零防护。</p>
+  <div class="kpis">
+    <span class="kpi">不报错的失效</span>
+    <span class="kpi">fail-closed 原则</span>
+    <span class="kpi">含泛化清单</span>
+  </div>
+  <p class="more"><a href="posts/hook-silent-failure.html">读这篇 →</a></p>
+</div>
+
+<div class="card">
+  <h3><a href="posts/verify-with-independent-tool.html">我差点上报一个不存在的 bug：验证生成物要换独立实现</a></h3>
+  <div class="meta">测试方法 / 工具陷阱 ｜ 2026-09 ｜ 约 5 分钟</div>
+  <p>生成 PDF 后用顺手工具抽文本复核，看到数字和网址变成乱码，
+  差点写下「PDF 文字层损坏」的结论。换一条独立技术路线复核后发现：
+  <b>原文件完全正确，是提取器的问题</b>。差一点就去修一个不存在的 bug。</p>
+  <div class="kpis">
+    <span class="kpi">交叉验证</span>
+    <span class="kpi">误判成本</span>
+    <span class="kpi">含例外情形</span>
+  </div>
+  <p class="more"><a href="posts/verify-with-independent-tool.html">读这篇 →</a></p>
+</div>
+
+<h2>这三篇的共同点</h2>
+<div class="block">
+<p><b>① 症状相同，根因可以完全不同。</b><br>
+「页数太多」可能是内容太多，也可能是版面没管过；「校验没生效」可能是逻辑写错，
+也可能是数据契约读错。先分清是哪一类，再动手。</p>
+<p><b>② 最贵的 bug 是不报错的那种。</b><br>
+静默失效（读不到字段、默认放行、抽取出错）不会让任何东西亮红灯，
+所以只能靠主动验证——数拒绝次数、换独立实现复核、dump 原始数据。</p>
+<p><b>③ 结论要能指回证据。</b><br>
+每篇里的数字（页数、次数、字段名）都来自真实执行的输出，不是估计。</p>
+</div>
+
+<footer>
+  <p><a href="index.html">← 作品集首页</a></p>
+</footer>
+
+</div>
+</body>
+</html>

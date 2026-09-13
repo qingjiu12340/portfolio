@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>离线自测 15 个场景全对，线上零防护：一次读错字段名的排查 — 技术笔记 · 李旭</title>
+<meta name="description" content="给 CLI agent 写的安全钩子，离线用例全绿、doctor 全绿，真实会话里却完全没生效。根因是 payload 字段名读错，而错误的方向是「更宽松」。">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<div class="wrap">
+
+<nav class="top">
+  <a href="../index.html">← 作品集首页</a>
+  <a href="../blog.html">全部技术笔记</a>
+</nav>
+
+<article class="post">
+
+<h1>离线自测 15 个场景全对，线上零防护：一次读错字段名的排查</h1>
+<p class="tagline">2026-09 ｜ 工程可靠性 / 安全边界 ｜ 阅读约 7 分钟</p>
+
+<div class="lead">
+一句话结论：<b>离线自测通过 ≠ 线上生效。</b>
+我用自己造的 payload 测了 15 个场景，全对；真实环境里规则一条都没命中。
+根因不是逻辑写错，是<b>我把字段名猜错了</b>——而这类错误的方向往往是「更宽松」：
+读不到数据 → 不匹配 → 落到默认放行 → <b>表面全绿、实际零防护</b>。
+</div>
+
+<h2>背景</h2>
+<p>我本地有一个 Markdown 笔记库，日常用 CLI agent 读写。为了防止误删，
+给 agent 的 <code>pre_tool_call</code> 钩子（工具执行前触发）写了一条边界规则：
+命中「删除 / 改名笔记库文件」的命令就直接拒绝执行。</p>
+<p>写完做了自测：<b>离线合成 payload，跑 15 个场景</b>——普通删除、通配符删除、
+改名、移动、大小写变形、路径穿越……全部按预期拦下了。钩子注册正常、
+白名单配好、官方的 <code>doctor</code> 自检全绿。</p>
+<p>结论：装好了。然后我把它当成了已生效。</p>
+
+<h2>三天后</h2>
+<p>一次真实会话里，我让 agent 执行一条删除命令，想看它被拦下来的样子。</p>
+<p><b>命令照跑了。</b></p>
+<p>翻钩子日志：那一刻的 6 次调用，<b>行为全是 <code>allow</code></b>。
+钩子确实在跑，只是每次都说「放行」。</p>
+
+<h2>排查：第一件事不是改逻辑</h2>
+<p>当时的诱惑是回去读自己的匹配逻辑，怀疑正则写漏了某种情况。
+但更值得先问的是：<b>钩子到底收到了什么？</b></p>
+<p>所以没动逻辑，先在钩子入口加了一行日志，把原始 payload 的<b>键名</b>打出来：</p>
+
+<pre><code>log(f"RAW keys={sorted(payload.keys())}")</code></pre>
+
+<p>下一次触发，日志给出了答案：</p>
+
+<pre><code>payload keys = ['cwd', 'extra', 'hook_event_name',
+                'session_id', 'tool_input', 'tool_name']</code></pre>
+
+<p>参数键叫 <b><code>tool_input</code></b>（Claude-Code 风格的事件结构）。
+而我代码里读的是 <code>args</code>。</p>
+
+<p>链路一下就连起来了：</p>
+<ol>
+  <li>读 <code>args</code> → 永远是 <code>None</code>；</li>
+  <li>拿不到命令文本 → 所有匹配规则都不成立；</li>
+  <li>规则都不成立 → 落到默认分支 <code>allow</code>；</li>
+  <li>于是<b>每一次都放行，而且每一次都记了一条「正常处理」的日志</b>。</li>
+</ol>
+<p>这就是它难被发现的原因：<b>它不报错。</b>整条链路上没有任何异常，
+自检工具看到的是「钩子已注册、返回格式合法」——全绿。</p>
+
+<h2>修复</h2>
+<ol>
+  <li>改成读 <code>tool_input</code>，保留 <code>args</code> 作为回退（兼容不同版本的事件结构）。</li>
+  <li>把<b>原来那 15 个离线用例换成正确键</b>再跑一遍——这次是真的在测逻辑了。</li>
+  <li>回真实会话复验：删除命令被 harness 在执行前拦下，返回拒绝信息；
+      正常读文件照常放行。</li>
+  <li>验完删掉那行 dump 日志——payload 里可能带正文内容，不该长期落盘。</li>
+</ol>
+
+<h2>三条留下的原则</h2>
+
+<div class="block">
+<p><b>① 第一次失败时，先 dump 数据结构，别改逻辑。</b><br>
+用自己造的数据测自己的代码，测的是「我以为的接口」。真实的接口长相是外部事实，
+只能从外部观察。一行 <code>keys()</code> 日志就能终结几小时的猜测。</p>
+
+<p><b>② 注意错误的「方向」。</b><br>
+同样一个字段名写错，方向可能相反：<br>
+· 读不到数据 → 判为不安全 → 拒绝一切 → 你立刻会发现；<br>
+· 读不到数据 → 判为无风险 → 放行一切 → <b>你永远发现不了</b>。<br>
+第二种才是真正危险的那类 bug。</p>
+
+<p><b>③ 「读不到数据」不能等于「没问题」。</b><br>
+任何安全判定里，取不到输入都该按最严处理（fail closed），
+或者至少<b>明确报出来</b>——而不是安静地走默认分支。
+默认值选错一次，整套防护就是装饰品。</p>
+</div>
+
+<h2>泛化：还有哪些地方是同一个坑</h2>
+<ul>
+  <li><b>Webhook / 事件回调</b>：平台改了字段名或包了一层 <code>data</code>，你的解析拿到 <code>None</code>，然后按默认逻辑继续跑。</li>
+  <li><b>第三方 API 响应</b>：字段是 <code>result</code> 还是 <code>data.items</code>？猜错就返回空列表，页面显示「暂无数据」——看起来像业务正常。</li>
+  <li><b>中间件 / 拦截层</b>：任何「拿不到参数就跳过校验」的写法，都是同一类漏洞。</li>
+  <li><b>CI 里的守卫脚本</b>：读不到被改动的文件列表 → 判定「无需检查」→ 直接过。</li>
+</ul>
+<p>共同点：<b>外部给我的数据结构，键名必须先看，不能先猜。</b>自己定义、自己消费的数据不在此列（键一定对得上）。</p>
+
+<div class="block">
+<p><b>一句话记住：</b>当校验层「跑通了」但你不确定它真的在拦，就去数它的<b>拒绝次数</b>。
+一次都没拒绝过的安全规则，和没装是一样的——而它给你的安心感是假的。</p>
+</div>
+
+</article>
+
+<footer>
+  <p><a href="../blog.html">← 全部技术笔记</a>　｜　<a href="../index.html">作品集首页</a></p>
+</footer>
+
+</div>
+</body>
+</html>
